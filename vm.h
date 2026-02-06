@@ -28,3 +28,5 @@ vm_load_result vm_load_file(vm_ctx vm, const char *file);
 vm_load_result vm_load_data(vm_ctx vm, unsigned const char *data, size_t length);
 
 vm_run_result vm_run(vm_ctx vm);
+vm_run_result vm_step(vm_ctx vm);
+extern void (*vm_putchar_cb)(char c);
