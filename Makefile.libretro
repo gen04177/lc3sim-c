@@ -1,0 +1,99 @@
+STATIC_LINKING := 0
+AR             := ar
+
+ifneq ($(V),1)
+   Q := @
+endif
+
+
+ifneq ($(SANITIZER),)
+   CFLAGS   += -fsanitize=$(SANITIZER)
+   CXXFLAGS += -fsanitize=$(SANITIZER)
+   LDFLAGS  += -fsanitize=$(SANITIZER)
+endif
+
+
+ifeq ($(platform),)
+platform = unix
+ifeq ($(shell uname -a),)
+   platform = win
+else ifneq ($(findstring MINGW,$(shell uname -a)),)
+   platform = win
+else ifneq ($(findstring Darwin,$(shell uname -a)),)
+   platform = osx
+endif
+endif
+
+CORE_DIR    := libretro
+TARGET_NAME := lc3sim
+LIBM        := -lm
+
+
+ifeq ($(STATIC_LINKING),1)
+EXT := a
+endif
+
+ifeq ($(platform), unix)
+   EXT     ?= so
+   TARGET  := $(TARGET_NAME)_libretro.$(EXT)
+   fpic    := -fPIC
+   SHARED  := -shared -Wl,--version-script=$(CORE_DIR)/link.T -Wl,--no-undefined
+else ifneq (,$(findstring osx,$(platform)))
+   TARGET  := $(TARGET_NAME)_libretro.dylib
+   fpic    := -fPIC
+   SHARED  := -dynamiclib
+else ifeq ($(platform), win)
+   CC=x86_64-w64-mingw32-gcc
+   CXX=x86_64-w64-mingw32-g++
+   AR=x86_64-w64-mingw32-ar
+   LDFLAGS += -lws2_32
+   TARGET  := $(TARGET_NAME)_libretro.dll
+   SHARED  := -shared -static-libgcc -static-libstdc++ \
+              -Wl,--version-script=$(CORE_DIR)/link.T -Wl,--no-undefined
+endif
+
+
+ifeq ($(DEBUG),1)
+   CFLAGS   += -O0 -g -DDEBUG
+   CXXFLAGS += -O0 -g -DDEBUG
+else
+   CFLAGS   += -O3
+   CXXFLAGS += -O3
+endif
+
+
+CFLAGS   += -Wall -D__LIBRETRO__ $(fpic)
+CXXFLAGS += -Wall -std=gnu++17 -D__LIBRETRO__ $(fpic)
+
+INCLUDES += -Ilibretro -Isrc
+
+LDFLAGS  += $(LIBM)
+
+
+include Makefile.common
+
+OBJECTS := $(SOURCES_C:.c=.o) $(SOURCES_CXX:.cpp=.o)
+
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+ifeq ($(STATIC_LINKING),1)
+	$(AR) rcs $@ $(OBJECTS)
+else
+	@$(if $(Q), $(shell echo echo LD $@),)
+	$(Q)$(CXX) $(fpic) $(SHARED) -o $@ $(OBJECTS) $(LDFLAGS)
+endif
+
+%.o: %.c
+	@$(if $(Q), $(shell echo echo CC $<),)
+	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
+
+%.o: %.cpp
+	@$(if $(Q), $(shell echo echo CXX $<),)
+	$(Q)$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<
+
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+
+.PHONY: clean

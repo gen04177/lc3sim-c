@@ -1,0 +1,5 @@
+SOURCES_C   := $(CORE_DIR)/libretro.c \
+		vm.c \
+		lc3os_obj.c
+
+
