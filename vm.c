@@ -23,6 +23,8 @@
 #   define DEBUG_TRACE(...)
 #endif
 
+void (*vm_putchar_cb)(char c) = NULL;
+
 extern unsigned char lc3os_obj[];
 extern unsigned int lc3os_obj_len;
 
@@ -159,10 +161,10 @@ static void vm_write(vm_ctx vm, vm_addr addr, vm_byte val) {
         return;
     }
     else if (addr == VM_ADDR_DDR) {
-        putchar(val);
-        fflush(stdout);
-        return;
-    }
+    if (vm_putchar_cb)
+        vm_putchar_cb((char)(val & 0xFF));
+    return;
+}
 
     vm->mem[addr] = val;
 }
@@ -465,4 +467,15 @@ vm_run_result vm_run(vm_ctx vm) {
     }
 
     return VM_RUN_SUCCESS;
+}
+
+vm_run_result vm_step(vm_ctx vm)
+{
+    assert(vm != NULL);
+
+    if (!(vm_read(vm, VM_ADDR_MCR) & VM_STATUS_BIT))
+        return VM_RUN_SUCCESS;
+
+    vm_byte instr = vm_read(vm, vm->reg[VM_REG_PC]++);
+    return vm_perform(vm, instr);
 }
