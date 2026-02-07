@@ -55,6 +55,93 @@ static void lc3_putchar(uint16_t v)
     }
 }
 
+static char get_key_from_keyboard(void)
+{
+    for (int i = RETROK_a; i <= RETROK_z; i++)
+        if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, i))
+            return 'a' + (i - RETROK_a);
+
+    if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_RETURN))
+        return '\n';
+
+    if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_BACKSPACE))
+        return '\b';
+
+    return 0;
+}
+
+static char get_key_from_gamepad(void)
+{
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A))
+        return 'a';
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B))
+        return 'b';
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X))
+        return 'x';
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y))
+        return 'y';
+
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP))
+        return 'u';
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN))
+        return 'd';
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT))
+        return 'l';
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT))
+        return 'r';
+
+    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START))
+        return '\n';
+
+    return 0;
+}
+
+uint16_t lc3_getchar(void)
+{
+    static bool waiting_for_release = false;
+
+    input_poll_cb();
+
+    for (unsigned i = 0; i < 256; ++i) {
+        if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, i)) {
+            if (!waiting_for_release) {
+                waiting_for_release = true;
+                return i;
+            }
+            else {
+                return 0xFFFF;
+            }
+        }
+    }
+
+    struct { unsigned id; char c; } buttons[] = {
+        { RETRO_DEVICE_ID_JOYPAD_A, 'a' },
+        { RETRO_DEVICE_ID_JOYPAD_B, 'b' },
+        { RETRO_DEVICE_ID_JOYPAD_X, 'x' },
+        { RETRO_DEVICE_ID_JOYPAD_Y, 'y' },
+        { RETRO_DEVICE_ID_JOYPAD_UP, 'u' },
+        { RETRO_DEVICE_ID_JOYPAD_DOWN, 'd' },
+        { RETRO_DEVICE_ID_JOYPAD_LEFT, 'l' },
+        { RETRO_DEVICE_ID_JOYPAD_RIGHT, 'r' },
+        { RETRO_DEVICE_ID_JOYPAD_START, '\n' }
+    };
+
+    for (unsigned i = 0; i < sizeof(buttons)/sizeof(buttons[0]); ++i) {
+        if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, buttons[i].id)) {
+            if (!waiting_for_release) {
+                waiting_for_release = true;
+                return buttons[i].c;
+            }
+            else {
+                return 0xFFFF;
+            }
+        }
+    }
+
+    waiting_for_release = false;
+    return 0xFFFF;
+}
+
 
 static vm_ctx vm = NULL;
 static bool vm_halted = false;
@@ -155,6 +242,7 @@ bool retro_load_game(const struct retro_game_info *info)
     vm_load_os(vm);
 
     vm_putchar_cb = lc3_putchar;
+	vm_getchar_cb = lc3_getchar;
 
     vm_load_result r = vm_load_file(vm, info->path);
     if (r != VM_LOAD_SUCCESS)
