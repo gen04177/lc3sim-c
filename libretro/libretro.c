@@ -9,8 +9,8 @@
 #include "libretro.h"
 #include "../vm.h"
 
-#define VIDEO_WIDTH  256
-#define VIDEO_HEIGHT 256
+#define VIDEO_WIDTH  512
+#define VIDEO_HEIGHT 512
 #define BYTES_PER_PIXEL 4
 
 #define FB_COLS 40
@@ -28,6 +28,28 @@ static retro_audio_sample_batch_t audio_batch_cb;
 
 static retro_input_poll_t input_poll_cb;
 static retro_input_state_t input_state_cb;
+
+struct keymap {
+    unsigned key;
+    char normal;
+    char shifted;
+};
+
+static const struct keymap punct[] = {
+    { RETROK_SPACE,      ' ',  ' '  },
+    { RETROK_MINUS,      '-',  '_'  },
+    { RETROK_EQUALS,     '=',  '+'  },
+    { RETROK_LEFTBRACKET,'[',  '{'  },
+    { RETROK_RIGHTBRACKET,']', '}'  },
+    { RETROK_BACKSLASH,  '\\', '|'  },
+    { RETROK_SEMICOLON,  ';',  ':'  },
+    { RETROK_QUOTE,      '\'', '"'  },
+    { RETROK_COMMA,      ',',  '<'  },
+    { RETROK_PERIOD,    '.',  '>'  },
+    { RETROK_SLASH,      '/',  '?'  },
+};
+
+static const char shifted_numbers[] = ")!@#$%^&*(";
 
 static void lc3_putchar(uint16_t v)
 {
@@ -102,47 +124,100 @@ static char get_key_from_gamepad(void)
 uint16_t lc3_getchar(void)
 {
     static bool waiting_for_release = false;
+    char c = 0;
 
     input_poll_cb();
 
-    for (unsigned i = 0; i < 256; ++i) {
+    bool shift =
+        input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_LSHIFT) ||
+        input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_RSHIFT);
+
+    
+    for (unsigned i = RETROK_a; i <= RETROK_z; i++) {
         if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, i)) {
-            if (!waiting_for_release) {
-                waiting_for_release = true;
-                return i;
-            }
-            else {
-                return 0xFFFF;
+            c = shift
+                ? ('A' + (i - RETROK_a))
+                : ('a' + (i - RETROK_a));
+            break;
+        }
+    }
+
+    if (!c) {
+        for (unsigned i = RETROK_0; i <= RETROK_9; i++) {
+            if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, i)) {
+                if (shift)
+                    c = ")!@#$%^&*("[i - RETROK_0];
+                else
+                    c = '0' + (i - RETROK_0);
+                break;
             }
         }
     }
 
-    struct { unsigned id; char c; } buttons[] = {
-        { RETRO_DEVICE_ID_JOYPAD_A, 'a' },
-        { RETRO_DEVICE_ID_JOYPAD_B, 'b' },
-        { RETRO_DEVICE_ID_JOYPAD_X, 'x' },
-        { RETRO_DEVICE_ID_JOYPAD_Y, 'y' },
-        { RETRO_DEVICE_ID_JOYPAD_UP, 'u' },
-        { RETRO_DEVICE_ID_JOYPAD_DOWN, 'd' },
-        { RETRO_DEVICE_ID_JOYPAD_LEFT, 'l' },
-        { RETRO_DEVICE_ID_JOYPAD_RIGHT, 'r' },
-        { RETRO_DEVICE_ID_JOYPAD_START, '\n' }
-    };
+    if (!c) {
+        static const struct {
+            unsigned key;
+            char normal;
+            char shifted;
+        } punct[] = {
+            { RETROK_SPACE, ' ',  ' '  },
+            { RETROK_MINUS, '-',  '_'  },
+            { RETROK_EQUALS, '=', '+'  },
+            { RETROK_LEFTBRACKET,'[','{' },
+            { RETROK_RIGHTBRACKET,']','}' },
+            { RETROK_BACKSLASH,'\\','|' },
+            { RETROK_SEMICOLON,';',':' },
+            { RETROK_QUOTE,'\'','"' },
+            { RETROK_COMMA,',','<' },
+            { RETROK_PERIOD,'.','>' },
+            { RETROK_SLASH,'/','?' },
+        };
 
-    for (unsigned i = 0; i < sizeof(buttons)/sizeof(buttons[0]); ++i) {
-        if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, buttons[i].id)) {
-            if (!waiting_for_release) {
-                waiting_for_release = true;
-                return buttons[i].c;
-            }
-            else {
-                return 0xFFFF;
+        for (unsigned i = 0; i < sizeof(punct)/sizeof(punct[0]); i++) {
+            if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, punct[i].key)) {
+                c = shift ? punct[i].shifted : punct[i].normal;
+                break;
             }
         }
     }
 
-    waiting_for_release = false;
-    return 0xFFFF;
+    if (!c && input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_RETURN))
+        c = '\n';
+
+    if (!c && input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_BACKSPACE))
+        c = '\b';
+
+    if (!c) {
+        struct { unsigned id; char c; } buttons[] = {
+            { RETRO_DEVICE_ID_JOYPAD_A, 'a' },
+            { RETRO_DEVICE_ID_JOYPAD_B, 'b' },
+            { RETRO_DEVICE_ID_JOYPAD_X, 'x' },
+            { RETRO_DEVICE_ID_JOYPAD_Y, 'y' },
+            { RETRO_DEVICE_ID_JOYPAD_UP, 'u' },
+            { RETRO_DEVICE_ID_JOYPAD_DOWN, 'd' },
+            { RETRO_DEVICE_ID_JOYPAD_LEFT, 'l' },
+            { RETRO_DEVICE_ID_JOYPAD_RIGHT, 'r' },
+            { RETRO_DEVICE_ID_JOYPAD_START, '\n' }
+        };
+
+        for (unsigned i = 0; i < sizeof(buttons)/sizeof(buttons[0]); i++) {
+            if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, buttons[i].id)) {
+                c = buttons[i].c;
+                break;
+            }
+        }
+    }
+
+    if (!c) {
+        waiting_for_release = false;
+        return 0xFFFF;
+    }
+
+    if (waiting_for_release)
+        return 0xFFFF;
+
+    waiting_for_release = true;
+    return (uint16_t)c;
 }
 
 
