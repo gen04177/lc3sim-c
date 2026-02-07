@@ -35,22 +35,6 @@ struct keymap {
     char shifted;
 };
 
-static const struct keymap punct[] = {
-    { RETROK_SPACE,      ' ',  ' '  },
-    { RETROK_MINUS,      '-',  '_'  },
-    { RETROK_EQUALS,     '=',  '+'  },
-    { RETROK_LEFTBRACKET,'[',  '{'  },
-    { RETROK_RIGHTBRACKET,']', '}'  },
-    { RETROK_BACKSLASH,  '\\', '|'  },
-    { RETROK_SEMICOLON,  ';',  ':'  },
-    { RETROK_QUOTE,      '\'', '"'  },
-    { RETROK_COMMA,      ',',  '<'  },
-    { RETROK_PERIOD,    '.',  '>'  },
-    { RETROK_SLASH,      '/',  '?'  },
-};
-
-static const char shifted_numbers[] = ")!@#$%^&*(";
-
 static void lc3_putchar(uint16_t v)
 {
     unsigned char c = v & 0xFF;
@@ -78,47 +62,6 @@ static void lc3_putchar(uint16_t v)
         memset(textbuf[FB_ROWS - 1], 0, FB_COLS);
         cursor_y = FB_ROWS - 1;
     }
-}
-
-static char get_key_from_keyboard(void)
-{
-    for (int i = RETROK_a; i <= RETROK_z; i++)
-        if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, i))
-            return 'a' + (i - RETROK_a);
-
-    if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_RETURN))
-        return '\n';
-
-    if (input_state_cb(0, RETRO_DEVICE_KEYBOARD, 0, RETROK_BACKSPACE))
-        return '\b';
-
-    return 0;
-}
-
-static char get_key_from_gamepad(void)
-{
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A))
-        return 'a';
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B))
-        return 'b';
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X))
-        return 'x';
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y))
-        return 'y';
-
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP))
-        return 'u';
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN))
-        return 'd';
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT))
-        return 'l';
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT))
-        return 'r';
-
-    if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START))
-        return '\n';
-
-    return 0;
 }
 
 uint16_t lc3_getchar(void)
