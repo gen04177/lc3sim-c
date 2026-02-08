@@ -26,7 +26,7 @@
 #   define DEBUG_TRACE(...)
 #endif
 
-void (*vm_putchar_cb)(char c) = NULL;
+void (*vm_putchar_cb)(uint16_t c) = NULL;
 uint16_t (*vm_getchar_cb)(void) = NULL;
 
 extern unsigned char lc3os_obj[];
