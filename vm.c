@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
 #include <sys/stat.h>
 #include <sys/time.h>
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -21,6 +21,7 @@
 #include <sys/mman.h>
 #endif
 #endif
+
 #include "vm.h"
 
 #ifdef TRACE
